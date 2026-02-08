@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Zolegon</title>
+<style>
+body{
+  margin:0;
+  background:black;
+  color:white;
+  text-align:center;
+  font-family:monospace;
+}
+canvas{
+  border:3px solid white;
+  margin-top:20px;
+}
+</style>
+</head>
+
+<body>
+<h1>Zolegon</h1>
+<canvas id="game" width="640" height="400"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let player = {x:300,y:200};
+let monster = {hp:50,maxhp:50};
+
+document.addEventListener("keydown", e=>{
+  if(e.key==="ArrowUp") player.y-=10;
+  if(e.key==="ArrowDown") player.y+=10;
+  if(e.key==="ArrowLeft") player.x-=10;
+  if(e.key==="ArrowRight") player.x+=10;
+  if(e.key===" ") attack();
+});
+
+function attack(){
+  monster.hp-=10;
+  if(monster.hp<0) monster.hp=0;
+}
+
+function draw(){
+  ctx.fillStyle="black";
+  ctx.fillRect(0,0,640,400);
+
+  // player
+  ctx.fillStyle="cyan";
+  ctx.fillRect(player.x,player.y,20,20);
+
+  // enemy
+  ctx.fillStyle="red";
+  ctx.fillRect(500,150,40,40);
+
+  // hp bar
+  ctx.fillStyle="white";
+  ctx.fillText("Zolegon HP:",450,130);
+  ctx.fillStyle="green";
+  ctx.fillRect(450,140,monster.hp*2,10);
+
+  requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body>
+</html>
