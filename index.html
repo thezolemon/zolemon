@@ -1,244 +1,165 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>ZOLEGON</title>
-
 <style>
-body{
-    margin:0;
-    background:black;
-    font-family:monospace;
-    color:white;
-    overflow:hidden;
-}
-
-/* ===== MENU ===== */
-#menu{
-    position:absolute;
-    width:100%;
-    height:100%;
-    background:linear-gradient(#020024,#090979,#000000);
-    display:flex;
-    flex-direction:column;
-    justify-content:center;
-    align-items:center;
-}
-
-#title{
-    font-size:60px;
-    color:cyan;
-    text-shadow:0 0 25px cyan;
-    margin-bottom:20px;
-}
-
-#startBtn{
-    padding:15px 40px;
-    font-size:25px;
-    background:black;
-    color:cyan;
-    border:2px solid cyan;
-    cursor:pointer;
-}
-
-#startBtn:hover{
-    background:cyan;
-    color:black;
-}
-
-/* ===== GAME ===== */
-#gameCanvas{
-    display:none;
-    background:#2d6a4f;
-}
-
-#battle{
-    position:absolute;
-    bottom:0;
-    width:100%;
-    height:220px;
-    background:#111;
-    border-top:4px solid white;
-    display:none;
-}
-
-#text{
-    padding:15px;
-    height:100px;
-}
-
-#buttons{
-    display:flex;
-}
-
-button.action{
-    flex:1;
-    height:60px;
-    font-size:18px;
-    background:black;
-    color:white;
-    border:1px solid white;
-    cursor:pointer;
-}
-button.action:hover{
-    background:white;
-    color:black;
-}
+  html,body{margin:0;background:#0b0f12;color:#e8f0f2;font-family:system-ui,Segoe UI,Arial}
+  #wrap{display:flex;justify-content:center;align-items:center;min-height:100vh}
+  canvas{background:#1f5a44;border:4px solid #9be3c7;border-radius:12px}
+  #ui{position:fixed;left:12px;top:12px}
+  .panel{background:#0f1a1eaa;border:2px solid #9be3c7;border-radius:10px;padding:8px 10px;margin-bottom:8px}
+  button{background:#16333b;color:#e8f0f2;border:2px solid #9be3c7;border-radius:8px;padding:8px 12px;margin-right:6px;cursor:pointer}
+  button:disabled{opacity:.5;cursor:not-allowed}
 </style>
 </head>
-
 <body>
-
-<!-- ===== MENU ===== -->
-<div id="menu">
-    <div id="title">ZOLEGON</div>
-    <div style="font-size:20px;margin-bottom:30px;">Thần Thú Huyền Thoại</div>
-    <button id="startBtn">START GAME</button>
+<div id="wrap">
+  <canvas id="game" width="900" height="500"></canvas>
 </div>
-
-<canvas id="gameCanvas" width="900" height="500"></canvas>
-
-<!-- ===== BATTLE UI ===== -->
-<div id="battle">
-    <div id="text">A wild creature appeared!</div>
-    <div id="buttons">
-        <button class="action" onclick="attack()">Attack</button>
-        <button class="action" onclick="heal()">Heal</button>
-        <button class="action" onclick="run()">Run</button>
-    </div>
+<div id="ui">
+  <div class="panel" id="info">HP: 100 | Lv: 1 | EXP: 0/10</div>
+  <div class="panel" id="battleUI" style="display:none">
+    <button id="atkBtn">Tấn công</button>
+    <button id="ballBtn">Ném Zoleball</button>
+    <button id="runBtn">Chạy</button>
+  </div>
 </div>
-
 <script>
-const canvas=document.getElementById("gameCanvas");
-const ctx=canvas.getContext("2d");
+const canvas=document.getElementById('game');
+const ctx=canvas.getContext('2d');
+const info=document.getElementById('info');
+const battleUI=document.getElementById('battleUI');
+const atkBtn=document.getElementById('atkBtn');
+const ballBtn=document.getElementById('ballBtn');
+const runBtn=document.getElementById('runBtn');
 
-let player={x:420,y:230,size:25,speed:4,hp:100,maxhp:100};
-let enemy={hp:80,maxhp:80};
-let battle=false;
+// ====== Assets (upload các file này cùng thư mục) ======
+const imgPlayer=new Image(); imgPlayer.src='zolegon.png';
+const imgPlayerEvo=new Image(); imgPlayerEvo.src='zolegon_evo.png';
+const imgEnemy=new Image(); imgEnemy.src='enemy.png';
 
-/* START */
-document.getElementById("startBtn").onclick=()=>{
-    document.getElementById("menu").style.display="none";
-    canvas.style.display="block";
-    loop();
+// ====== Game state ======
+let keys={};
+let inBattle=false;
+let grass={x:120,y:80,w:660,h:340};
+
+let player={x:430,y:230,s:40,spd:4,hp:100,maxhp:100,lv:1,exp:0,next:10,evolved:false,balls:5};
+let enemy={hp:70,maxhp:70,lv:1};
+let message='';
+let owned=[]; // quái đã bắt
+
+// ====== Input ======
+window.addEventListener('keydown',e=>keys[e.key]=true);
+window.addEventListener('keyup',e=>keys[e.key]=false);
+
+// ====== Loop ======
+function loop(){ update(); draw(); requestAnimationFrame(loop);} loop();
+
+function update(){
+  if(!inBattle){
+    if(keys['ArrowUp'])player.y-=player.spd;
+    if(keys['ArrowDown'])player.y+=player.spd;
+    if(keys['ArrowLeft'])player.x-=player.spd;
+    if(keys['ArrowRight'])player.x+=player.spd;
+    // random encounter in grass
+    if(rects(player,grass) && Math.random()<0.01){ startBattle(); }
+  }
+}
+
+function rects(a,b){return a.x<a.w+b.x && a.x+a.s>b.x && a.y<b.h+b.y && a.y+a.s>b.y;}
+
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  // map
+  ctx.fillStyle='#2f7a5c'; ctx.fillRect(grass.x,grass.y,grass.w,grass.h);
+  // player
+  const pImg=player.evolved?imgPlayerEvo:imgPlayer;
+  if(pImg.complete) ctx.drawImage(pImg,player.x,player.y,player.s,player.s);
+  else{ctx.fillStyle='cyan';ctx.fillRect(player.x,player.y,player.s,player.s);} 
+  // battle overlay
+  if(inBattle){
+    ctx.fillStyle='rgba(0,0,0,.5)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    // enemy
+    if(imgEnemy.complete) ctx.drawImage(imgEnemy,600,80,140,140);
+    // player big
+    if(pImg.complete) ctx.drawImage(pImg,120,260,160,160);
+    // hp bars
+    bar(600,60,enemy.hp,enemy.maxhp);
+    bar(120,240,player.hp,player.maxhp);
+    // text
+    ctx.fillStyle='#fff'; ctx.font='18px system-ui'; ctx.fillText(message,60,470);
+  }
+  info.textContent=`HP: ${player.hp} | Lv: ${player.lv} | EXP: ${player.exp}/${player.next} | Balls: ${player.balls}`;
+}
+
+function bar(x,y,hp,max){
+  ctx.fillStyle='#222'; ctx.fillRect(x,y,200,16);
+  ctx.fillStyle='#3cff7a'; ctx.fillRect(x,y,200*(hp/max),16);
+}
+
+// ====== Battle ======
+function startBattle(){
+  inBattle=true; battleUI.style.display='block';
+  enemy={hp:60+Math.floor(Math.random()*40),maxhp:80,lv:Math.max(1,player.lv)};
+  message='Zolemon hoang dã xuất hiện!';
+}
+
+function endBattle(){ inBattle=false; battleUI.style.display='none'; message=''; }
+
+atkBtn.onclick=()=>{
+  if(!inBattle) return;
+  const dmg=8+Math.floor(Math.random()*6)+player.lv;
+  enemy.hp=Math.max(0,enemy.hp-dmg);
+  message=`Zolegon gây ${dmg} sát thương!`;
+  if(enemy.hp<=0){ win(); return; }
+  enemyTurn();
 };
 
-/* MOVEMENT */
-let keys={};
-document.addEventListener("keydown",e=>keys[e.key]=true);
-document.addEventListener("keyup",e=>keys[e.key]=false);
+ballBtn.onclick=()=>{
+  if(!inBattle||player.balls<=0) return;
+  player.balls--;
+  const rate=(enemy.maxhp-enemy.hp)/enemy.maxhp; // yếu máu dễ bắt
+  if(Math.random()<0.4+rate*0.4){
+    owned.push('Wild');
+    message='Bắt thành công!';
+    gainExp(6+enemy.lv*2);
+    setTimeout(endBattle,800);
+  }else{ message='Thoát ra!'; enemyTurn(); }
+};
 
-/* MAP */
-function drawMap(){
-    ctx.fillStyle="#2d6a4f";
-    ctx.fillRect(0,0,900,500);
+runBtn.onclick=()=>{ if(inBattle){ message='Bạn đã chạy!'; setTimeout(endBattle,500);} };
 
-    /* grass area */
-    ctx.fillStyle="#1b4332";
-    ctx.fillRect(100,80,700,340);
+function enemyTurn(){
+  const dmg=6+Math.floor(Math.random()*6)+enemy.lv;
+  player.hp=Math.max(0,player.hp-dmg);
+  message+=`  |  Địch gây ${dmg}!`;
+  if(player.hp<=0){ message='Bạn gục... hồi sinh!'; player.hp=player.maxhp; setTimeout(endBattle,800);} 
 }
 
-/* PLAYER */
-function drawPlayer(){
-    ctx.fillStyle="cyan";
-    ctx.fillRect(player.x,player.y,player.size,player.size);
+function win(){
+  message='Thắng trận!';
+  gainExp(8+enemy.lv*3);
+  setTimeout(endBattle,700);
 }
 
-/* ENCOUNTER */
-function checkEncounter(){
-    if(player.x>100 && player.x<800 && player.y>80 && player.y<420){
-        if(Math.random()<0.01){
-            startBattle();
-        }
+// ====== EXP / Level / Evolution ======
+function gainExp(v){
+  player.exp+=v;
+  if(player.exp>=player.next){
+    player.exp-=player.next; player.lv++;
+    player.next=Math.floor(player.next*1.4+6);
+    player.maxhp+=8; player.hp=player.maxhp;
+    message+='  |  Lên cấp!';
+    if(player.lv>=10 && !player.evolved){
+      player.evolved=true; message+='  |  Zolegon tiến hoá!';
     }
-}
-
-function startBattle(){
-    battle=true;
-    enemy.hp=80;
-    document.getElementById("battle").style.display="block";
-    document.getElementById("text").innerText="Zolemon hoang dã xuất hiện!";
-}
-
-/* BATTLE ACTIONS */
-function attack(){
-    let dmg=Math.floor(Math.random()*20)+10;
-    enemy.hp-=dmg;
-    document.getElementById("text").innerText="Bạn gây "+dmg+" sát thương!";
-
-    if(enemy.hp<=0){
-        document.getElementById("text").innerText="Bạn thắng!";
-        setTimeout(endBattle,1500);
-        return;
-    }
-
-    enemyAttack();
-}
-
-function heal(){
-    let heal=Math.floor(Math.random()*15)+10;
-    player.hp=Math.min(player.maxhp,player.hp+heal);
-    document.getElementById("text").innerText="Bạn hồi "+heal+" HP!";
-    enemyAttack();
-}
-
-function run(){
-    document.getElementById("text").innerText="Bạn chạy thoát!";
-    setTimeout(endBattle,1000);
-}
-
-function enemyAttack(){
-    let dmg=Math.floor(Math.random()*15)+8;
-    player.hp-=dmg;
-    setTimeout(()=>{
-        document.getElementById("text").innerText="Địch tấn công gây "+dmg+" damage!";
-    },600);
-
-    if(player.hp<=0){
-        setTimeout(()=>{
-            alert("Bạn đã thua!");
-            location.reload();
-        },1200);
-    }
-}
-
-function endBattle(){
-    battle=false;
-    document.getElementById("battle").style.display="none";
-}
-
-/* LOOP */
-function update(){
-    if(!battle){
-        if(keys["ArrowUp"])player.y-=player.speed;
-        if(keys["ArrowDown"])player.y+=player.speed;
-        if(keys["ArrowLeft"])player.x-=player.speed;
-        if(keys["ArrowRight"])player.x+=player.speed;
-
-        checkEncounter();
-    }
-}
-
-function drawHP(){
-    ctx.fillStyle="red";
-    ctx.fillRect(20,20,200,20);
-    ctx.fillStyle="lime";
-    ctx.fillRect(20,20,200*(player.hp/player.maxhp),20);
-
-    ctx.fillStyle="white";
-    ctx.fillText("HP: "+player.hp,25,35);
-}
-
-function loop(){
-    update();
-    drawMap();
-    drawPlayer();
-    drawHP();
-    requestAnimationFrame(loop);
+  }
 }
 </script>
-
 </body>
 </html>
+
 
 
