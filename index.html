@@ -1,165 +1,118 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html>
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>ZOLEGON</title>
+<meta charset="UTF-8">
+<title>Zolemon</title>
+
 <style>
-  html,body{margin:0;background:#0b0f12;color:#e8f0f2;font-family:system-ui,Segoe UI,Arial}
-  #wrap{display:flex;justify-content:center;align-items:center;min-height:100vh}
-  canvas{background:#1f5a44;border:4px solid #9be3c7;border-radius:12px}
-  #ui{position:fixed;left:12px;top:12px}
-  .panel{background:#0f1a1eaa;border:2px solid #9be3c7;border-radius:10px;padding:8px 10px;margin-bottom:8px}
-  button{background:#16333b;color:#e8f0f2;border:2px solid #9be3c7;border-radius:8px;padding:8px 12px;margin-right:6px;cursor:pointer}
-  button:disabled{opacity:.5;cursor:not-allowed}
+body{
+    background:#0b0f18;
+    color:white;
+    font-family:Arial;
+    text-align:center;
+}
+
+.card{
+    width:350px;
+    margin:auto;
+    margin-top:50px;
+    padding:20px;
+    border-radius:15px;
+    background:#151c2b;
+    box-shadow:0 0 20px cyan;
+}
+
+button{
+    padding:10px 20px;
+    margin:10px;
+    border:none;
+    border-radius:10px;
+    background:#00ffd5;
+    font-weight:bold;
+    cursor:pointer;
+}
+
+.hpbar{
+    width:100%;
+    height:20px;
+    background:#333;
+    border-radius:10px;
+    overflow:hidden;
+}
+.hp{
+    height:100%;
+    background:lime;
+    width:100%;
+}
 </style>
 </head>
+
 <body>
-<div id="wrap">
-  <canvas id="game" width="900" height="500"></canvas>
+
+<h1>ZOLEMON BATTLE</h1>
+
+<div class="card">
+<h2 id="name">Pyronox</h2>
+<p id="type">Type: Fire</p>
+
+<div class="hpbar">
+<div id="hp" class="hp"></div>
 </div>
-<div id="ui">
-  <div class="panel" id="info">HP: 100 | Lv: 1 | EXP: 0/10</div>
-  <div class="panel" id="battleUI" style="display:none">
-    <button id="atkBtn">Tấn công</button>
-    <button id="ballBtn">Ném Zoleball</button>
-    <button id="runBtn">Chạy</button>
-  </div>
+<p id="hptext">HP: 100</p>
+
+<button onclick="attack()">Attack</button>
+<button onclick="capture()">Capture</button>
+<button onclick="next()">Next Zolemon</button>
+
+<p id="log"></p>
 </div>
+
 <script>
-const canvas=document.getElementById('game');
-const ctx=canvas.getContext('2d');
-const info=document.getElementById('info');
-const battleUI=document.getElementById('battleUI');
-const atkBtn=document.getElementById('atkBtn');
-const ballBtn=document.getElementById('ballBtn');
-const runBtn=document.getElementById('runBtn');
 
-// ====== Assets (upload các file này cùng thư mục) ======
-const imgPlayer=new Image(); imgPlayer.src='zolegon.png';
-const imgPlayerEvo=new Image(); imgPlayerEvo.src='zolegon_evo.png';
-const imgEnemy=new Image(); imgEnemy.src='enemy.png';
+const zolemon = [
+{name:"Pyronox",type:"Fire",hp:100},
+{name:"Voltaris",type:"Electric",hp:90},
+{name:"Cryowraith",type:"Ice/Dark",hp:110},
+{name:"Terragron",type:"Earth/Steel",hp:130},
+{name:"Hydrake",type:"Water/Dragon",hp:120}
+];
 
-// ====== Game state ======
-let keys={};
-let inBattle=false;
-let grass={x:120,y:80,w:660,h:340};
-
-let player={x:430,y:230,s:40,spd:4,hp:100,maxhp:100,lv:1,exp:0,next:10,evolved:false,balls:5};
-let enemy={hp:70,maxhp:70,lv:1};
-let message='';
-let owned=[]; // quái đã bắt
-
-// ====== Input ======
-window.addEventListener('keydown',e=>keys[e.key]=true);
-window.addEventListener('keyup',e=>keys[e.key]=false);
-
-// ====== Loop ======
-function loop(){ update(); draw(); requestAnimationFrame(loop);} loop();
+let current=0;
+let hp=zolemon[current].hp;
 
 function update(){
-  if(!inBattle){
-    if(keys['ArrowUp'])player.y-=player.spd;
-    if(keys['ArrowDown'])player.y+=player.spd;
-    if(keys['ArrowLeft'])player.x-=player.spd;
-    if(keys['ArrowRight'])player.x+=player.spd;
-    // random encounter in grass
-    if(rects(player,grass) && Math.random()<0.01){ startBattle(); }
-  }
+document.getElementById("name").innerText=zolemon[current].name;
+document.getElementById("type").innerText="Type: "+zolemon[current].type;
+document.getElementById("hp").style.width=(hp/zolemon[current].hp*100)+"%";
+document.getElementById("hptext").innerText="HP: "+hp;
 }
 
-function rects(a,b){return a.x<a.w+b.x && a.x+a.s>b.x && a.y<b.h+b.y && a.y+a.s>b.y;}
-
-function draw(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  // map
-  ctx.fillStyle='#2f7a5c'; ctx.fillRect(grass.x,grass.y,grass.w,grass.h);
-  // player
-  const pImg=player.evolved?imgPlayerEvo:imgPlayer;
-  if(pImg.complete) ctx.drawImage(pImg,player.x,player.y,player.s,player.s);
-  else{ctx.fillStyle='cyan';ctx.fillRect(player.x,player.y,player.s,player.s);} 
-  // battle overlay
-  if(inBattle){
-    ctx.fillStyle='rgba(0,0,0,.5)'; ctx.fillRect(0,0,canvas.width,canvas.height);
-    // enemy
-    if(imgEnemy.complete) ctx.drawImage(imgEnemy,600,80,140,140);
-    // player big
-    if(pImg.complete) ctx.drawImage(pImg,120,260,160,160);
-    // hp bars
-    bar(600,60,enemy.hp,enemy.maxhp);
-    bar(120,240,player.hp,player.maxhp);
-    // text
-    ctx.fillStyle='#fff'; ctx.font='18px system-ui'; ctx.fillText(message,60,470);
-  }
-  info.textContent=`HP: ${player.hp} | Lv: ${player.lv} | EXP: ${player.exp}/${player.next} | Balls: ${player.balls}`;
+function attack(){
+let dmg=Math.floor(Math.random()*20)+10;
+hp-=dmg;
+if(hp<0) hp=0;
+update();
+document.getElementById("log").innerText="You dealt "+dmg+" damage!";
 }
 
-function bar(x,y,hp,max){
-  ctx.fillStyle='#222'; ctx.fillRect(x,y,200,16);
-  ctx.fillStyle='#3cff7a'; ctx.fillRect(x,y,200*(hp/max),16);
+function capture(){
+if(hp<30){
+document.getElementById("log").innerText="Captured "+zolemon[current].name+"!";
+}else{
+document.getElementById("log").innerText="It broke free!";
+}
 }
 
-// ====== Battle ======
-function startBattle(){
-  inBattle=true; battleUI.style.display='block';
-  enemy={hp:60+Math.floor(Math.random()*40),maxhp:80,lv:Math.max(1,player.lv)};
-  message='Zolemon hoang dã xuất hiện!';
+function next(){
+current++;
+if(current>=zolemon.length) current=0;
+hp=zolemon[current].hp;
+update();
+document.getElementById("log").innerText="A wild "+zolemon[current].name+" appeared!";
 }
 
-function endBattle(){ inBattle=false; battleUI.style.display='none'; message=''; }
+update();
 
-atkBtn.onclick=()=>{
-  if(!inBattle) return;
-  const dmg=8+Math.floor(Math.random()*6)+player.lv;
-  enemy.hp=Math.max(0,enemy.hp-dmg);
-  message=`Zolegon gây ${dmg} sát thương!`;
-  if(enemy.hp<=0){ win(); return; }
-  enemyTurn();
-};
-
-ballBtn.onclick=()=>{
-  if(!inBattle||player.balls<=0) return;
-  player.balls--;
-  const rate=(enemy.maxhp-enemy.hp)/enemy.maxhp; // yếu máu dễ bắt
-  if(Math.random()<0.4+rate*0.4){
-    owned.push('Wild');
-    message='Bắt thành công!';
-    gainExp(6+enemy.lv*2);
-    setTimeout(endBattle,800);
-  }else{ message='Thoát ra!'; enemyTurn(); }
-};
-
-runBtn.onclick=()=>{ if(inBattle){ message='Bạn đã chạy!'; setTimeout(endBattle,500);} };
-
-function enemyTurn(){
-  const dmg=6+Math.floor(Math.random()*6)+enemy.lv;
-  player.hp=Math.max(0,player.hp-dmg);
-  message+=`  |  Địch gây ${dmg}!`;
-  if(player.hp<=0){ message='Bạn gục... hồi sinh!'; player.hp=player.maxhp; setTimeout(endBattle,800);} 
-}
-
-function win(){
-  message='Thắng trận!';
-  gainExp(8+enemy.lv*3);
-  setTimeout(endBattle,700);
-}
-
-// ====== EXP / Level / Evolution ======
-function gainExp(v){
-  player.exp+=v;
-  if(player.exp>=player.next){
-    player.exp-=player.next; player.lv++;
-    player.next=Math.floor(player.next*1.4+6);
-    player.maxhp+=8; player.hp=player.maxhp;
-    message+='  |  Lên cấp!';
-    if(player.lv>=10 && !player.evolved){
-      player.evolved=true; message+='  |  Zolegon tiến hoá!';
-    }
-  }
-}
 </script>
 </body>
 </html>
-
-
-
