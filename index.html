@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Zolegon</title>
+
 <style>
 body{
   margin:0;
@@ -11,58 +12,86 @@ body{
   text-align:center;
   font-family:monospace;
 }
+
+h1{
+  margin-top:10px;
+}
+
 canvas{
-  border:3px solid white;
-  margin-top:20px;
+  border:4px solid white;
+  margin-top:10px;
 }
 </style>
 </head>
 
 <body>
-<h1>Zolegon</h1>
+
+<h1>Zolegon Web Demo</h1>
+<p>Arrow keys: move | Space: attack</p>
+
 <canvas id="game" width="640" height="400"></canvas>
 
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-let player = {x:300,y:200};
-let monster = {hp:50,maxhp:50};
+let player = {x:80,y:200,hp:100};
+let enemy = {x:500,y:200,hp:80,maxhp:80};
 
+// movement
 document.addEventListener("keydown", e=>{
   if(e.key==="ArrowUp") player.y-=10;
   if(e.key==="ArrowDown") player.y+=10;
   if(e.key==="ArrowLeft") player.x-=10;
   if(e.key==="ArrowRight") player.x+=10;
-  if(e.key===" ") attack();
+
+  if(e.key===" "){
+    attack();
+  }
 });
 
 function attack(){
-  monster.hp-=10;
-  if(monster.hp<0) monster.hp=0;
+  let dist = Math.abs(player.x - enemy.x) + Math.abs(player.y - enemy.y);
+  if(dist < 120){
+    enemy.hp -= 10;
+    if(enemy.hp<0) enemy.hp=0;
+  }
 }
 
 function draw(){
+  // background
   ctx.fillStyle="black";
   ctx.fillRect(0,0,640,400);
 
-  // player
+  // player (Zolegon)
   ctx.fillStyle="cyan";
-  ctx.fillRect(player.x,player.y,20,20);
+  ctx.fillRect(player.x,player.y,25,25);
 
   // enemy
   ctx.fillStyle="red";
-  ctx.fillRect(500,150,40,40);
+  ctx.fillRect(enemy.x,enemy.y,40,40);
 
   // hp bar
   ctx.fillStyle="white";
-  ctx.fillText("Zolegon HP:",450,130);
-  ctx.fillStyle="green";
-  ctx.fillRect(450,140,monster.hp*2,10);
+  ctx.fillText("Enemy HP",460,150);
+
+  ctx.fillStyle="gray";
+  ctx.fillRect(450,160,160,10);
+
+  ctx.fillStyle="lime";
+  ctx.fillRect(450,160,(enemy.hp/enemy.maxhp)*160,10);
+
+  if(enemy.hp<=0){
+    ctx.fillStyle="yellow";
+    ctx.font="30px monospace";
+    ctx.fillText("Zolegon Wins!",220,200);
+  }
 
   requestAnimationFrame(draw);
 }
+
 draw();
 </script>
+
 </body>
 </html>
